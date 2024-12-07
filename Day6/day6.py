@@ -26,31 +26,23 @@ class room:
 
     def __str__(self) -> str:
         return f"Grid({self.Nrows}x{self.Ncols}), Obsticles({self.obsticles}), Guard({self.guard})"
-    
-    def add_obsticle(self,pos):
-        if pos not in self.obsticles and pos != self.guard_start:
-            self.obsticles.append(pos)
-            return True
-        return False
 
-    def remove_obsticle(self,pos):
-        if pos in self.obsticles:
-            self.obsticles.remove(pos)
+    def set_obsticles(self,obsticles):
+        self.obsticles = obsticles
 
     def run_timelines(self):
         loops = []
         visited = set([item[0] for item in self.guard.previous_positions])
         self.guard.reset()
+        obsticles = self.obsticles
         for pos in tqdm(visited):
-                if self.add_obsticle(pos):
-                    self.run_route()
-                    loops.append(self.guard.in_loop())
-                    #if self.guard.in_loop():
-                    #    print(row,col)
-                    self.guard.reset()
-                    self.remove_obsticle(pos)
-                else:
-                    print(pos)
+                temp_obsticles = obsticles.copy()
+                temp_obsticles.append(pos)
+                self.set_obsticles(temp_obsticles)
+                self.run_route()
+                loops.append(self.guard.in_loop())
+                self.guard.reset()
+                self.set_obsticles(obsticles)
         return sum(loops)
 
     def run_route(self):
