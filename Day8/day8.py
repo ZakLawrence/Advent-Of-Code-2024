@@ -2,7 +2,6 @@ import sys
 sys.path.insert(0,"/Users/zlawrence/Documents/LocalWorkArea/Advent-Of-Code-2024")
 from shared.common import read_file
 
-
 def add_antenna(antennas,key,pos):
     if key in antennas:
         antennas[key].append(pos)
@@ -67,9 +66,6 @@ def find_antinodes(antennas,rows,cols):
             if 0 <= a2[0] < rows and 0 <= a2[1] < cols:
                 antinodes.append(a2)
     print(len(set(antinodes)))
-
-
-
 
 def main(Test:bool=False):
     path = "Day8/test.txt" if Test else "Day8/input.txt"
