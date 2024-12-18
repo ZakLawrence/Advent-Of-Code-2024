@@ -29,7 +29,25 @@ class Object:
 
     def __eq__(self, value):
         return self.position == value
+
+class Object_Wide(Object):
+    def __init__(self, position, movable=True):
+        super().__init__(position,movable)
+        self.positions = (position, (position[0],position[1]+1))
     
+    def get_position(self):
+        return self.positions
+    
+    def update_position(self, new_positions):
+        if self.movable:
+            self.positions = new_positions
+    
+    def value(self):
+        (py,px),_ = self.positions
+        return 100*py+px
+    
+    def __eq__(self, value):
+        return value == self.positions[0] or value == self.positions[1]
 
 class Wearhouse:
     def __init__(self,file_path):
@@ -87,6 +105,27 @@ class Wearhouse:
             return Nrows,Ncols,walls,boxes,robot,moves
 
         self.Nrows,self.Ncols,self.walls,self.boxes,self.robot,self.moves = parse_inputs(file_path)        
+
+    def set_walls(self,walls):
+        self.walls = walls
+
+    def set_boxes(self,boxes):
+        self.boxes = boxes
+
+    def scale_grid(self):
+        walls = []
+        boxes = []
+        for wall in self.walls:
+            wall_pos = wall.get_position()
+            wall.change_position((wall_pos[0],wall_pos[1]*2))
+            walls.append(wall)
+            walls.append(Object(wall_pos))
+        self.set_walls(walls)
+        for box in self.boxes:
+            box_pos = box.get_position()
+            wide_pos = (box_pos[0],box_pos[1]+1)
+            boxes.append((box_pos,wide_pos))
+        self.set_boxes(boxes)
 
     def is_wall(self,pos):
         return pos in [wall.get_position() for wall in self.walls]
