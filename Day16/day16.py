@@ -33,8 +33,6 @@ class Graph(object):
     def is_connected(self,node1,node2):
         return node1 in self._graph and node2 in self._graph[node1]
     
-    
-
 
 class maze(Graph):
     def __init__(self,path):
@@ -68,41 +66,6 @@ class maze(Graph):
                 if neighbour in self.space:
                     connections.add((space,neighbour))
         return list(connections)
-    
-    def build_paths(self):
-        def Dijkstra(start,end,graph):
-            dist = {v:float("inf") for v in graph.keys()}
-            previous = {v:set() for v in graph.keys()}
-            dist[start] = 0
-            
-            queue = [(dist[v],v) for v in graph.keys()]
-            heapq.heapify(queue)
-
-
-            def routes(target, previous):
-                if not previous[target]:
-                    return [[target]]
-                paths = []
-                for pred in previous[target]:  
-                    for path in routes(pred, previous):  
-                        paths.append(path + [target])
-                return paths
-
-            while queue:
-                _, node = heapq.heappop(queue)
-                    
-                for neighbour in graph[node]:
-                    path = routes(node,previous)[0]+[neighbour]
-                    cost = self.cost(path)
-                    if cost < dist[neighbour]:
-                        dist[neighbour] = cost
-                        previous[neighbour] = {node}
-                        heapq.heappush(queue,(cost,neighbour))
-                    elif cost == dist[neighbour]:
-                        previous[neighbour].add(node)
-            return routes(end,previous)
-
-        return Dijkstra(self.start,self.end,self._graph)
     
     def build_path(self):
         def Dijkstra(start,end,graph):
@@ -194,14 +157,11 @@ def part1(path):
 
 def part2(path):
     course = maze(path)
-    min_routes = course.build_paths()
-    print(min_routes)
-    
-    #print(f"Part 2: {len(min_routes)}")
-
+    route = course.build_path()
+    print(len(route))
 
 def main(day:int,Test:bool=False):
-    path = f"Day{day}/test2.txt" if Test else f"Day{day}/input.txt"
+    path = f"Day{day}/test.txt" if Test else f"Day{day}/input.txt"
     
     part1(path)
     part2(path)
