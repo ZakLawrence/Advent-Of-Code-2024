@@ -1,7 +1,6 @@
 import sys
 sys.path.insert(0,"/Users/zlawrence/Documents/LocalWorkArea/Advent-Of-Code-2024")
 from shared.common import read_file
-from tqdm.auto import tqdm
 
 class Compute:
     def __init__(self):
