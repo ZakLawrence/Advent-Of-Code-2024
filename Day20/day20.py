@@ -25,6 +25,14 @@ class Graph(object):
             cxns.pop(node,None)
         self._graph.pop(node,None)
 
+    def remove_connection(self, node1, node2):
+        if node1 in self._graph and node2 in self._graph[node1]:
+            del self._graph[node1][node2]  
+            if not self._directed and node2 in self._graph and node1 in self._graph[node2]:
+                del self._graph[node2][node1] 
+        else:
+            raise ValueError(f"No connection exists between {node1} and {node2}")
+
     def is_connected(self,node1,node2):
         return node1 in self._graph and node2 in self._graph[node1]
     
@@ -44,7 +52,36 @@ class Graph(object):
                 self._graph[node2][node1] = weight
         else: 
             raise ValueError(f"No edge between {node1} and {node2}")
-    
+
+    def find_path_length(self,start,end):
+        if start not in self._graph or end not in self._graph:
+            return False,float('inf')
+
+        queue = [(0,start)]
+        visited = set()
+        distance = {start:0}
+
+        while queue:
+            current_distance, current_node = heapq.heappop(queue)
+            if current_node in visited:
+                continue
+            visited.add(current_node)
+
+            if current_node == end:
+                return True,current_distance
+            
+            for neighbour, weight in self._graph[current_node].items():
+                if neighbour not in visited:
+                    new_distance = current_distance+weight
+                    if new_distance < distance.get(neighbour,float('inf')):
+                        distance[neighbour] = new_distance
+                        heapq.heappush(queue,(new_distance,neighbour))
+        return False, float('inf')
+
+    def has_path(self, start, end):
+        exists, _ = self.find_path_length(start, end)
+        return exists
+
     def __str__(self):
         """Pretty-print the graph structure."""
         return str(dict(self._graph))
@@ -58,75 +95,42 @@ class RaceTrack(Graph):
         self.spaces = spaces
         self.Nrows,self.Ncols = Nrows,Ncols
 
-    def remove_wall(self,position):
-        if position in self.walls:
-            neigbours = self._graph[position].keys()
-            for neighbour in neigbours:
-                self.update_weight(position,neighbour,1)
-            self.walls.remove(position)
-        else:
-            raise ValueError(f"Can't remove wall at position {position}! Not a wall!")
-    
-    def add_wall(self,position):
-        if position not in self.walls:
-            neigbours = self._graph[position].keys()
-            for neighbour in neigbours:
-                self.update_weight(position,neighbour,float('inf'))
-            self.walls.add(position)
-        else:
-            raise ValueError(f"Can't add wall at position {position}! Already a wall!")
-
-    def cheat_races(self):
-        directions = [(0,1),(0,-1),(1,0),(-1,0)]
-        cheat_walls = set()
-        for (px,py) in self.spaces:
-            for (dx,dy) in directions:
-                npos = (px+dx,py+dy)
-                npos_2 = (px+2*dx,py+2*dy)
-                if npos in self.walls and npos_2 in self.spaces:
-                    cheat_walls.add(npos)
+    def cheat_races(self,radius=2):
         original_route = self.Dijkstra()
         original_time = len(original_route)
-        savings = dict()
-        for cheat_wall in tqdm(cheat_walls):
-            self.remove_wall(cheat_wall)
-            new_time = len(self.Dijkstra())
-            delta = abs(new_time-original_time)
-            savings[cheat_wall] = delta
-            self.add_wall(cheat_wall)
-        optimal = [wall for wall,time in savings.items() if time >= 100]
+        good_cheats = 0
 
-        return savings,optimal
+        def get_positions(start, radius):
+            spaces = set(self.spaces)
+            x,y = start[0],start[1]
+            positions_by_steps = {s:set() for s in range(2,radius+1)}
+            for s in range(2,radius+1):
+                for dx in range(-s,s+1):
+                    dy = s - abs(dx)
+                    npos = (x+dx,y+dy)
+                    if npos in spaces:
+                        positions_by_steps[s].add(npos)
+                    npos = (x+dx,y-dy)
+                    if npos in spaces and dy != 0:
+                        positions_by_steps[s].add(npos)
+            return positions_by_steps
 
-
-    def Dijkstra(self):
-        start,end = self.start,self.end
-        graph = self._graph
-        dist = {v:float("inf") for v in graph.keys()}
-        previous = {v:None for v in graph.keys()}
-        dist[start] = 0
-        
-        queue = [(dist[v],v) for v in graph.keys()]
-        heapq.heapify(queue)
-
-        def route(target,previous):
-            path = []
-            current = target
-            while current in previous:
-                path.append(current)
-                current = previous[current]
-            return path[::-1]
-
-        while queue:
-            _, node = heapq.heappop(queue)
-                
-            for neighbour in graph[node].keys():
-                cost = dist[node]+graph[node][neighbour]
-                if cost < dist[neighbour]:
-                    dist[neighbour] = cost
-                    previous[neighbour] = node
-                    heapq.heappush(queue,(cost,neighbour))
-        return route(end,previous)
+        for space in tqdm(self.spaces):
+            _,time = self.find_path_length(space,self.end)
+            cheat_positions = get_positions(space,radius)
+            for r in range(2,radius+1):
+                cheats = [(space,cheat,r) for cheat in cheat_positions[r] if self.find_path_length(space,cheat)[1] > r]
+                if not cheats:
+                    continue
+                for cheat in cheats:
+                    self.add(cheat[0],cheat[1],cheat[2])
+                    _,new_time = self.find_path_length(space,self.end)
+                    savings = abs(time - new_time)
+                    if savings >= 100:
+                        good_cheats += 1
+                    self.remove_connection(cheat[0],cheat[1])
+            self.remove(space)
+        return good_cheats
 
     def show_route(self,route):
         string = []
@@ -146,7 +150,6 @@ class RaceTrack(Graph):
             string.append("\n")
         return "".join(string)
 
-
     def __str__(self):
         string = []
         for r in range(self.Nrows):
@@ -162,7 +165,6 @@ class RaceTrack(Graph):
                     string.append(" ")
             string.append("\n")
         return "".join(string)
-                
     
 
 def parse_input(path):
@@ -170,7 +172,7 @@ def parse_input(path):
     walls = set()
     spaces = set()
     start = None 
-    End = None 
+    end = None 
     for i,line in enumerate(file):
         line = line.strip()
         for j, char in enumerate(line):
@@ -183,34 +185,48 @@ def parse_input(path):
                 if char == "E":
                     end = (i,j)
     Nrows,Ncols = i+1,j+1
-
-    directions = [(0,1),(0,-1),(1,0),(-1,0)]
     conections = set()
-    for r in range(Nrows):
-        for c in range(Ncols):
-            for dr,dc in directions:
-                npos = (r+dr,c+dc)
-                if npos in walls or (r,c) in walls:
-                    conections.add(((r,c),npos,float('inf')))
-                else:
-                    conections.add(((r,c),npos,1))
-    return start,end,conections,walls,spaces,Nrows,Ncols
+
+    ordered_spaces = []
+    queue = [start]
+    visited = set()
+    visited.add(start)
+
+    while queue:
+        pos = queue.pop(0)
+        ordered_spaces.append(pos)
+        for dx,dy in [(0,1),(0,-1),(1,0),(-1,0)]:
+            npos = (pos[0]+dx,pos[1]+dy)
+            if npos in spaces and npos not in visited:
+                visited.add(npos)
+                queue.append(npos)
+
+
+    for i in range(len(ordered_spaces)-1):
+        conections.add((ordered_spaces[i], ordered_spaces[i+1],1))
+    
+    return start,end,conections,walls,ordered_spaces,Nrows,Ncols
 
 
 def part1(path):
     start,end,connections,walls, spaces,Nrows,Ncols = parse_input(path)
     track = RaceTrack(start,end,connections,walls,spaces,Nrows,Ncols)
-    route = track.Dijkstra()
-    print(track.show_route(route))
+    savings = track.cheat_races()
+    print(f"Part 1: {savings}")
+    #print(savings)
 
-    savings, optimal = track.cheat_races()
-    print(f"Part 1: {len(optimal)}")
-    print(savings)
+def part2(path):
+    start,end,connections,walls, spaces,Nrows,Ncols = parse_input(path)
+    track = RaceTrack(start,end,connections,walls,spaces,Nrows,Ncols)
+    savings = track.cheat_races(20)
+    print(f"Part 2: {savings}")
+    #print(savings)
 
 
 def main(day:int,Test:bool=False):
     path = f"Day{day}/test.txt" if Test else f"Day{day}/input.txt"
-    part1(path)
+    #part1(path)
+    part2(path)
     
 
 if __name__ == "__main__":
