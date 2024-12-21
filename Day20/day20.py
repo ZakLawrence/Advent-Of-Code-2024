@@ -94,11 +94,16 @@ class RaceTrack(Graph):
         self.walls = walls
         self.spaces = spaces
         self.Nrows,self.Ncols = Nrows,Ncols
+        self.path_cache = {}
 
     def cheat_races(self,radius=2):
-        original_route = self.Dijkstra()
-        original_time = len(original_route)
         good_cheats = 0
+
+        def cached_find_path_length(start, end):
+            key = (start, end)
+            if key not in self.path_cache:
+                self.path_cache[key] = self.find_path_length(start, end)[1]
+            return self.path_cache[key]
 
         def get_positions(start, radius):
             spaces = set(self.spaces)
@@ -116,20 +121,17 @@ class RaceTrack(Graph):
             return positions_by_steps
 
         for space in tqdm(self.spaces):
-            _,time = self.find_path_length(space,self.end)
+            time = abs(self.spaces.index(space) - self.spaces.index(self.end))
             cheat_positions = get_positions(space,radius)
             for r in range(2,radius+1):
-                cheats = [(space,cheat,r) for cheat in cheat_positions[r] if self.find_path_length(space,cheat)[1] > r]
+                cheats = [(space,cheat,r) for cheat in cheat_positions[r] if abs(self.spaces.index(space) - self.spaces.index(cheat)) > r]
                 if not cheats:
                     continue
                 for cheat in cheats:
-                    self.add(cheat[0],cheat[1],cheat[2])
-                    _,new_time = self.find_path_length(space,self.end)
-                    savings = abs(time - new_time)
+                    new_time = r + cached_find_path_length(cheat[1],self.end)
+                    savings = time - new_time
                     if savings >= 100:
                         good_cheats += 1
-                    self.remove_connection(cheat[0],cheat[1])
-            self.remove(space)
         return good_cheats
 
     def show_route(self,route):
@@ -213,19 +215,17 @@ def part1(path):
     track = RaceTrack(start,end,connections,walls,spaces,Nrows,Ncols)
     savings = track.cheat_races()
     print(f"Part 1: {savings}")
-    #print(savings)
 
 def part2(path):
     start,end,connections,walls, spaces,Nrows,Ncols = parse_input(path)
     track = RaceTrack(start,end,connections,walls,spaces,Nrows,Ncols)
     savings = track.cheat_races(20)
     print(f"Part 2: {savings}")
-    #print(savings)
 
 
 def main(day:int,Test:bool=False):
     path = f"Day{day}/test.txt" if Test else f"Day{day}/input.txt"
-    #part1(path)
+    part1(path)
     part2(path)
     
 
