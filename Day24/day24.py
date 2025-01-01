@@ -67,6 +67,7 @@ class LogicNetwork(Graph):
         self.input_layer = {key:InputGate(key,value) for key,value in inputs.items()}
         self.connections, self.gates = get_gates(gates)
         self.gates = self.gates | self.input_layer
+        self.gate_type = {k:v["function"] for k,v in gates.items()} | {k:"" for k,v in inputs.items()}
         for in1,gate,_ in self.connections:
             self.gates[gate].add_input(self.gates[in1])
         super().__init__(self.connections,True)
@@ -77,7 +78,7 @@ class LogicNetwork(Graph):
             self.gates[key].set_value(value)
         out = {}
         for i in range(46):
-            out[f"z{i:02}"] = self.gates[f"z{i:02}"].output()
+            out[f"z{i:02}"] = int(self.gates[f"z{i:02}"].output())
         return out
     
     def visualize(self, output_file="graph", format="png"):
@@ -87,7 +88,7 @@ class LogicNetwork(Graph):
 
         # Add nodes and edges
         for node1, neighbors in self._graph.items():
-            gv_graph.node(node1)  # Add the node
+            gv_graph.node(node1, label = node1+"\n"+self.gate_type[node1])  # Add the node
             for node2, weight in neighbors.items():
                 # Add edges with weights
                 gv_graph.edge(node1, node2, label=str(weight))
@@ -177,7 +178,7 @@ def part2(path):
 
 
 
-    network.visualize()
+    network.visualize(format="pdf")
 
 def main(day:int,Test:bool=False):
     path = f"Day{day}/test.txt" if Test else f"Day{day}/input.txt" 

@@ -6,32 +6,111 @@ from collections import defaultdict
 
 class Graph(object):
     def __init__(self,connections, directed = False):
-        self._graph = defaultdict(set)
+        self._graph = defaultdict(dict)
         self._directed = directed
         self.add_connections(connections)
 
     def add_connections(self,connections):
-        for node1, node2 in connections:
-            self.add(node1,node2)
+        for node1, node2, weight in connections:
+            self.add(node1,node2,weight)
 
-    def add(self,node1,node2):
-        self._graph[node1].add(node2)
+    def add(self,node1,node2,weight):
+        self._graph[node1][node2] = weight
         if not self._directed:
-            self._graph[node2].add(node1)
+            self._graph[node2][node1] = weight
     
     def remove(self,node):
         for n,cxns in self._graph.items():
-            try:
-                cxns.remove(node)
-            except KeyError:
-                pass
-        try: 
-            del self._graph[node]
-        except KeyError:
-            pass
-    
+            cxns.pop(node,None)
+        self._graph.pop(node,None)
+
+    def remove_connection(self, node1, node2):
+        if node1 in self._graph and node2 in self._graph[node1]:
+            del self._graph[node1][node2]  
+            if not self._directed and node2 in self._graph and node1 in self._graph[node2]:
+                del self._graph[node2][node1] 
+        else:
+            raise ValueError(f"No connection exists between {node1} and {node2}")
+
     def is_connected(self,node1,node2):
         return node1 in self._graph and node2 in self._graph[node1]
+    
+    def get_weight(self,node1,node2):
+        return self._graph[node1].get(node2,None)
+    
+    def local_graph(self,node1):
+        if node1 in self._graph:
+            return self._graph[node1]
+        else:
+            raise ValueError(f"Cannot find node {node1} in graph!")
+    
+    def update_weight(self,node1,node2,weight):
+        if node1 in self._graph and node2 in self._graph[node1]:
+            self._graph[node1][node2] = weight
+            if not self._directed:
+                self._graph[node2][node1] = weight
+        else: 
+            raise ValueError(f"No edge between {node1} and {node2}")
+
+    def find_path_length(self,start,end):
+        if start not in self._graph or end not in self._graph:
+            return False,float('inf')
+
+        queue = [(0,start)]
+        visited = set()
+        distance = {start:0}
+
+        while queue:
+            current_distance, current_node = heapq.heappop(queue)
+            if current_node in visited:
+                continue
+            visited.add(current_node)
+
+            if current_node == end:
+                return True,current_distance
+            
+            for neighbour, weight in self._graph[current_node].items():
+                if neighbour not in visited:
+                    new_distance = current_distance+weight
+                    if new_distance < distance.get(neighbour,float('inf')):
+                        distance[neighbour] = new_distance
+                        heapq.heappush(queue,(new_distance,neighbour))
+        return False, float('inf')
+    
+    def find_all_shortest_routes(self,start,end):
+        def dfs(current_node, current_path, current_distance):
+            if current_node == end:
+                if current_distance < min_distance[0]:
+                    min_distance[0] = current_distance
+                    shortest_paths.clear()
+                    shortest_paths.append((list(current_path), current_distance))
+                elif current_distance == min_distance[0]:
+                    shortest_paths.append((list(current_path), current_distance))
+                return
+
+            for neighbor, weight in self._graph[current_node].items():
+                if neighbor not in current_path: 
+                    current_path.append(neighbor)
+                    dfs(neighbor, current_path, current_distance + weight)
+                    current_path.pop()  
+
+        if start not in self._graph or end not in self._graph:
+            return []  
+
+        shortest_paths = []
+        min_distance = [float('inf')] 
+
+        dfs(start, [start], 0)
+        return shortest_paths
+
+
+    def has_path(self, start, end):
+        exists, _ = self.find_path_length(start, end)
+        return exists
+
+    def __str__(self):
+        """Pretty-print the graph structure."""
+        return str(dict(self._graph))
     
 
 class maze(Graph):
